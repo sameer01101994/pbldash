@@ -13,7 +13,7 @@ Sales Insights Dashboard
 • Visualisations      : 20+ (see tabs below)
 • Target Audience     : Director‑level decision makers & HR/Stakeholders
 
-Put this file (app.py) together with IA_PBL_DA_Sameer.csv and requirements.txt
+Place this file (`app.py`) together with `IA_PBL_DA_Sameer.csv` and `requirements.txt`
 in a GitHub repo, then deploy on Streamlit Community Cloud.
 """
 
@@ -47,7 +47,6 @@ if df.empty:
     st.stop()
 
 # ------------------ COLUMN MAPPING ------------------
-# normalise to snake_case
 cols = df.columns.tolist()
 req_cols = {
     'total_value': ['total_value', 'totalvalue', 'sales', 'total sales', 'total amount'],
@@ -71,7 +70,7 @@ missing = [k for k in req_cols if k not in mapped]
 if missing:
     st.warning(f"Missing expected columns: {', '.join(missing)}. Functionality may be limited.")
 
-# helper to fetch col safely
+# Helper to fetch mapped column safely
 def col(name):
     return mapped.get(name, None)
 
@@ -100,16 +99,20 @@ st.markdown('## 💰 Sales Insights Dashboard')
 
 k1, k2, k3, k4 = st.columns(4)
 
-if col('total_value'):
-    total_sales = df[col('total_value')].sum()
+total_col = col('total_value')
+price_col = col('unit_price')
+rating_col = col('rating')
+
+if total_col:
+    total_sales = df[total_col].sum()
     k1.metric('Total Sales', f"${total_sales:,.0f}")
 
-if col('unit_price'):
-    avg_price = df[col('unit_price')].mean()
+if price_col:
+    avg_price = df[price_col].mean()
     k2.metric('Average Unit Price', f"${avg_price:,.2f}")
 
-if col('rating'):
-    avg_rating = df[col('rating')].mean()
+if rating_col:
+    avg_rating = df[rating_col].mean()
     k3.metric('Average Rating', f"{avg_rating:.2f} ⭐")
 
 k4.metric('Transactions', f"{len(df):,}")
@@ -118,7 +121,7 @@ k4.metric('Transactions', f"{len(df):,}")
 def explain(text: str):
     st.markdown(f"<div style='font-size:0.9rem;color:#6c757d;margin-bottom:0.3rem'>{text}</div>", unsafe_allow_html=True)
 
-def vbar(df_, x, y, color=None, barmode='group'):  # reusable bar plot
+def vbar(df_, x, y, color=None, barmode='group'):
     fig = px.bar(df_, x=x, y=y, color=color, barmode=barmode, text_auto='.2s', height=430)
     st.plotly_chart(fig, use_container_width=True)
 
@@ -133,145 +136,79 @@ def vbar(df_, x, y, color=None, barmode='group'):  # reusable bar plot
 
 # ------- 1. OVERVIEW (5 charts) -------
 with tab_overview:
-    # Chart 1: Sales distribution
-    if col('total_value'):
+    if total_col:
         explain('**Chart 1**: Distribution of transaction sales amounts.')
-        fig = px.histogram(df, x=col('total_value'), nbins=40, height=430)
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(px.histogram(df, x=total_col, nbins=40, height=430), use_container_width=True)
 
-    # Chart 2: Sales share by channel
-    if col('channel'):
+    if col('channel') and total_col:
         explain('**Chart 2**: Proportion of sales across channels.')
-        sales_by_channel = df.groupby(col('channel'))[col('total_value')].sum().sort_values(ascending=False)
-        fig = px.pie(values=sales_by_channel, names=sales_by_channel.index, hole=0.35, height=430)
-        st.plotly_chart(fig, use_container_width=True)
+        sales_by_channel = df.groupby(col('channel'))[total_col].sum().sort_values(ascending=False)
+        st.plotly_chart(px.pie(values=sales_by_channel, names=sales_by_channel.index, hole=0.35, height=430), use_container_width=True)
 
-    # Chart 3: Average sales by payment method
-    if col('paymentmethod'):
+    if col('paymentmethod') and total_col:
         explain('**Chart 3**: Average order value by payment method to gauge purchase behaviour.')
-        aov_pm = df.groupby(col('paymentmethod'))[col('total_value')].mean().reset_index()
-        vbar(aov_pm, x=col('paymentmethod'), y=col('total_value'))
+        aov_pm = df.groupby(col('paymentmethod'))[total_col].mean().reset_index()
+        vbar(aov_pm, x=col('paymentmethod'), y=total_col)
 
-    # Chart 4: Box plot of sales vs rating buckets
-    if col('rating') and col('total_value'):
+    if rating_col and total_col:
         explain('**Chart 4**: Relationship between customer rating and basket size.')
-        fig = px.box(df, x=col('rating'), y=col('total_value'), points='all', height=430)
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(px.box(df, x=rating_col, y=total_col, points='all', height=430), use_container_width=True)
 
-    # Chart 5: Unit price distribution
-    if col('unit_price'):
+    if price_col:
         explain('**Chart 5**: Distribution of unit prices across all products.')
-        fig = px.histogram(df, x=col('unit_price'), nbins=30, height=430, color_discrete_sequence=['#00A'])
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(px.histogram(df, x=price_col, nbins=30, height=430), use_container_width=True)
 
 # ------- 2. PRICING & RATING (5 charts) -------
 with tab_price_rating:
-    # Chart 6: Scatter Unit Price vs Sales
-    if col('unit_price') and col('total_value'):
-        explain('**Chart 6**: Correlation between unit price and total sales per transaction.')
-        fig = px.scatter(df, x=col('unit_price'), y=col('total_value'), color=col('channel'), trendline='ols', height=430)
-        st.plotly_chart(fig, use_container_width=True)
+    if price_col and total_col:
+        explain('**Chart 6**: Relationship between unit price and total sales per transaction.')
+        # Removed trendline="ols" to avoid statsmodels dependency
+        st.plotly_chart(px.scatter(df, x=price_col, y=total_col, color=col('channel'), height=430), use_container_width=True)
 
-    # Chart 7: Box of Unit Price by Channel
-    if col('unit_price') and col('channel'):
+    if price_col and col('channel'):
         explain('**Chart 7**: Pricing variations by sales channel.')
-        fig = px.box(df, x=col('channel'), y=col('unit_price'), points='all', height=430)
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(px.box(df, x=col('channel'), y=price_col, points='all', height=430), use_container_width=True)
 
-    # Chart 8: Distribution of Ratings
-    if col('rating'):
+    if rating_col:
         explain('**Chart 8**: Overall distribution of customer ratings.')
-        fig = px.histogram(df, x=col('rating'), nbins=10, height=430)
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(px.histogram(df, x=rating_col, nbins=10, height=430), use_container_width=True)
 
-    # Chart 9: Average Rating by Channel
-    if col('rating') and col('channel'):
+    if rating_col and col('channel'):
         explain('**Chart 9**: Which channel garners better ratings?')
-        avg_rating_ch = df.groupby(col('channel'))[col('rating')].mean().reset_index()
-        vbar(avg_rating_ch, x=col('channel'), y=col('rating'))
+        avg_rating_ch = df.groupby(col('channel'))[rating_col].mean().reset_index()
+        vbar(avg_rating_ch, x=col('channel'), y=rating_col)
 
-    # Chart 10: Heatmap Unit Price vs Rating density
-    if col('unit_price') and col('rating'):
+    if price_col and rating_col:
         explain('**Chart 10**: Density heatmap of unit price vs rating.')
-        fig = px.density_heatmap(df, x=col('unit_price'), y=col('rating'), nbinsx=30, nbinsy=10, height=430)
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(px.density_heatmap(df, x=price_col, y=rating_col, nbinsx=30, nbinsy=10, height=430), use_container_width=True)
 
 # ------- 3. PRODUCT ATTRIBUTES (5 charts) -------
 with tab_product:
-    # Chart 11: Sales by Color
-    if col('color'):
+    if col('color') and total_col:
         explain('**Chart 11**: Sales volume by product colour.')
-        sales_color = df.groupby(col('color'))[col('total_value')].sum().reset_index().sort_values(col('total_value'), ascending=False)
-        vbar(sales_color, x=col('color'), y=col('total_value'))
+        sales_color = df.groupby(col('color'))[total_col].sum().reset_index().sort_values(total_col, ascending=False)
+        vbar(sales_color, x=col('color'), y=total_col)
 
-    # Chart 12: Sales by Shoe Type
-    if col('shoetype'):
+    if col('shoetype') and total_col:
         explain('**Chart 12**: Popularity of shoe categories.')
-        sales_st = df.groupby(col('shoetype'))[col('total_value')].sum().reset_index().sort_values(col('total_value'), ascending=False)
-        vbar(sales_st, x=col('shoetype'), y=col('total_value'))
+        sales_st = df.groupby(col('shoetype'))[total_col].sum().reset_index().sort_values(total_col, ascending=False)
+        vbar(sales_st, x=col('shoetype'), y=total_col)
 
-    # Chart 13: Sales by Size
-    if col('size'):
+    if col('size') and total_col:
         explain('**Chart 13**: Which sizes contribute most to revenue?')
-        sales_size = df.groupby(col('size'))[col('total_value')].sum().reset_index()
-        vbar(sales_size, x=col('size'), y=col('total_value'))
+        sales_size = df.groupby(col('size'))[total_col].sum().reset_index()
+        vbar(sales_size, x=col('size'), y=total_col)
 
-    # Chart 14: Stacked bar – Color by Channel
-    if col('color') and col('channel'):
+    if col('color') and col('channel') and total_col:
         explain('**Chart 14**: Colour preferences segmented by sales channel.')
-        pivot = df.pivot_table(index=col('color'), columns=col('channel'), values=col('total_value'), aggfunc='sum').fillna(0)
+        pivot_cc = df.pivot_table(index=col('color'), columns=col('channel'), values=total_col, aggfunc='sum').fillna(0)
         fig = go.Figure()
-        for ch in pivot.columns:
-            fig.add_bar(name=ch, x=pivot.index, y=pivot[ch])
+        for ch in pivot_cc.columns:
+            fig.add_bar(name=ch, x=pivot_cc.index, y=pivot_cc[ch])
         fig.update_layout(barmode='stack', height=430)
         st.plotly_chart(fig, use_container_width=True)
 
-    # Chart 15: Treemap of Sales by ShoeType & Color
-    if col('shoetype') and col('color'):
+    if col('shoetype') and col('color') and total_col:
         explain('**Chart 15**: Hierarchical view of sales by shoe type and colour.')
-        treemap_df = df.groupby([col('shoetype'), col('color')])[col('total_value')].sum().reset_index()
-        fig = px.treemap(treemap_df, path=[col('shoetype'), col('color')], values=col('total_value'), height=430)
-        st.plotly_chart(fig, use_container_width=True)
-
-# ------- 4. PAYMENT & CHANNEL (3 charts) -------
-with tab_payment_channel:
-    # Chart 16: Sales by Payment Method
-    if col('paymentmethod'):
-        explain('**Chart 16**: Revenue split by payment methods.')
-        sales_pm = df.groupby(col('paymentmethod'))[col('total_value')].sum().reset_index()
-        vbar(sales_pm, x=col('paymentmethod'), y=col('total_value'))
-
-    # Chart 17: Heatmap – Payment vs Channel
-    if col('paymentmethod') and col('channel'):
-        explain('**Chart 17**: Which payment methods are preferred on each channel?')
-        pivot = df.pivot_table(index=col('paymentmethod'), columns=col('channel'), values=col('total_value'), aggfunc='sum')
-        fig = px.imshow(pivot, text_auto=True, aspect='auto', height=430)
-        st.plotly_chart(fig, use_container_width=True)
-
-    # Chart 18: Average Ticket Size by Channel & Payment
-    if col('paymentmethod') and col('channel'):
-        explain('**Chart 18**: Average order value by channel‑payment combination.')
-        aov = df.groupby([col('channel'), col('paymentmethod')])[col('total_value')].mean().reset_index()
-        fig = px.sunburst(aov, path=[col('channel'), col('paymentmethod')], values=col('total_value'), color=col('total_value'), height=430)
-        st.plotly_chart(fig, use_container_width=True)
-
-# ------- 5. CORRELATION (2 charts) -------
-with tab_corr:
-    # Chart 19: Correlation Matrix
-    explain('**Chart 19**: Pearson correlation among numeric variables.')
-    num_df = df.select_dtypes(include=np.number)
-    if not num_df.empty:
-        corr = num_df.corr()
-        fig = px.imshow(corr, text_auto=True, aspect='auto', height=500, color_continuous_scale='RdBu_r')
-        st.plotly_chart(fig, use_container_width=True)
-
-    # Chart 20: Scatter Matrix
-    if num_df.shape[1] >= 2:
-        explain('**Chart 20**: Scatter‑plot matrix for pairwise relationships.')
-        fig = px.scatter_matrix(num_df, dimensions=num_df.columns, height=500)
-        st.plotly_chart(fig, use_container_width=True)
-
-# ------- 6. RAW DATA -------
-with tab_data:
-    explain('Interactive data table – apply any combination of filters from the sidebar to refine.')
-    st.dataframe(df, use_container_width=True)
+        treemap_df = df.groupby([col('shoetype'), col('color')])[total_col].sum().reset_index()
+        st.plotly_chart(px.treemap(treemap_df, path=[col('shoetype'), col
